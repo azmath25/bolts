@@ -7,3 +7,7 @@ function toggleDomain(i,j){
     if (idx>=0) domainCells.splice(idx,1);
     else domainCells.push(key);
 }
+
+function clearDomain() {
+    domainCells = [];
+}
