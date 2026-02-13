@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Grid Bolt Editor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="controls">
+        <label>Grid n x m:
+            <input type="number" id="gridN" value="10" min="5" max="20">
+            x
+            <input type="number" id="gridM" value="10" min="5" max="20">
+        </label>
+        <button id="setGrid">Set Grid</button>
+        <button id="chooseDomain">Choose Domain</button>
+        <button id="drawBolt">Draw Bolt</button>
+    </div>
+
+    <canvas id="gridCanvas"></canvas>
+
+    <script src="script.js"></script>
+</body>
+</html>
