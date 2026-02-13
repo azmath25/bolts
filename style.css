@@ -1,0 +1,16 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+.controls {
+    margin: 10px;
+}
+
+canvas {
+    border: 1px solid #333;
+    margin-top: 10px;
+    touch-action: none;
+}
