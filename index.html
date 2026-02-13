@@ -9,53 +9,53 @@
 <body>
     <h1>Grid Bolt Editor</h1>
     
-    <div class="controls">
-        <div class="control-group">
-            <label>Grid Size:
-                <input type="number" id="gridN" value="10" min="5" max="20" style="width: 50px;">
-                x
-                <input type="number" id="gridM" value="10" min="5" max="20" style="width: 50px;">
-            </label>
-            <button id="setGrid">Set Grid</button>
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="controls">
+                <h3>Grid Settings</h3>
+                <div class="control-group">
+                    <label>Rows (n):
+                        <input type="number" id="gridN" value="10" min="5" max="20">
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label>Columns (m):
+                        <input type="number" id="gridM" value="10" min="5" max="20">
+                    </label>
+                </div>
+                <button id="setGrid" class="btn-primary">Apply Grid Size</button>
+                
+                <hr>
+                
+                <h3>Drawing Tools</h3>
+                <button id="chooseDomain" class="btn-tool">Choose Domain</button>
+                <button id="drawBolt" class="btn-tool">Draw Bolt</button>
+                <button id="assignSign" class="btn-tool">Assign Signs</button>
+                
+                <hr>
+                
+                <h3>Actions</h3>
+                <button id="clearAll" class="btn-danger">Clear All</button>
+            </div>
+            
+            <div class="instructions">
+                <h3>How to Use:</h3>
+                <ol>
+                    <li><strong>Choose Domain:</strong> Click cells to mark allowed region</li>
+                    <li><strong>Draw Bolt:</strong> Click lattice points. Must make 90° turns. Close by clicking start.</li>
+                    <li><strong>Assign Signs:</strong> Add +/- signs (alternating)</li>
+                    <li><strong>Move Edges:</strong> Click and drag any edge</li>
+                    <li><strong>Swap Rectangle:</strong> Click two diagonal corners with matching signs</li>
+                </ol>
+            </div>
         </div>
         
-        <div class="control-group">
-            <button id="chooseDomain" class="btn-primary">Choose Domain</button>
-            <button id="drawBolt" class="btn-primary">Draw Bolt</button>
-            <button id="assignSign" class="btn-secondary">Assign Sign</button>
+        <div class="right-panel">
+            <div id="status" class="status">Ready. Choose a domain or draw a bolt to begin.</div>
+            <div class="canvas-container">
+                <canvas id="gridCanvas"></canvas>
+            </div>
         </div>
-        
-        <div class="control-group">
-            <button id="moveEdge" class="btn-secondary">Move Edge</button>
-            <button id="swapRect" class="btn-secondary">Swap Rectangle</button>
-            <button id="clearAll" class="btn-danger">Clear All</button>
-        </div>
-    </div>
-
-    <div id="status" class="status">Ready. Choose a domain or draw a bolt to begin.</div>
-
-    <div class="canvas-container">
-        <canvas id="gridCanvas"></canvas>
-    </div>
-
-    <div class="instructions">
-        <h3>Instructions:</h3>
-        <ol>
-            <li><strong>Set Grid:</strong> Adjust grid size (5-20) and click "Set Grid"</li>
-            <li><strong>Choose Domain:</strong> Click cells to mark the allowed region (green)</li>
-            <li><strong>Draw Bolt:</strong> Click lattice points to create a path. Points must be adjacent and turns must be 90°. Click the starting point to close the loop.</li>
-            <li><strong>Assign Sign:</strong> After drawing, assign + or - signs to vertices (alternating)</li>
-            <li><strong>Move Edge:</strong> Click an edge, then use arrow keys (←→ for vertical, ↑↓ for horizontal)</li>
-            <li><strong>Swap Rectangle:</strong> Select two diagonal points with matching sign conditions to swap positions</li>
-        </ol>
-        
-        <h3>Rules:</h3>
-        <ul>
-            <li>Blue lines = bolt path, Green points = positive sign, Red points = negative sign</li>
-            <li>Vertical edges move left/right, horizontal edges move up/down</li>
-            <li>Rectangle swap: (a,b)⁻ and (c,d)⁻ → (a,d) and (c,b), or (a,d)⁺ and (c,b)⁺ → (a,b) and (c,d)</li>
-            <li>All movements must keep endpoints inside the domain</li>
-        </ul>
     </div>
 
     <script src="utils.js"></script>
