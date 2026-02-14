@@ -1,71 +1,119 @@
-# Grid Bolt Editor
+# Grid Bolt Forest Editor
 
-Interactive web application for creating and manipulating broken lines (bolts) on a grid with domain constraints.
+Interactive web application for creating and manipulating multiple broken lines (bolts) on a grid - now with full support for bolt forests!
+
+## New Features
+
+- **Multiple Bolts**: Create and manage multiple independent bolts
+- **Bolt Forest**: Bolts can share vertices
+- **Sign Arithmetic**: Merging points adds signs (+ and - = 0, vanishes)
+- **Selective Display**: Signs only show on selected bolt
+- **Composite Detection**: Automatically detects composite bolts (3+ collinear points)
 
 ## Quick Start
 
-1. Upload all files to GitHub repository
-2. Enable GitHub Pages in Settings → Pages
+1. Upload all files to GitHub
+2. Enable GitHub Pages
 3. Access at `https://yourusername.github.io/repo-name`
 
 ## Files
 
-- `index.html` - Main page
+- `index.html` - Main interface
 - `style.css` - Styling
 - `script.js` - Event handlers
-- `grid.js` - Canvas rendering
+- `grid.js` - Multi-bolt rendering
+- `bolt.js` - Bolt forest logic
 - `domain.js` - Domain management
-- `bolt.js` - Bolt logic
 - `utils.js` - Helper functions
 
 ## How to Use
 
 ### 1. Set Grid Size
-- Adjust rows (n) and columns (m) between 5-20
-- Click "Apply Grid Size"
-- Smaller grids have larger cells
+- Adjust rows and columns (5-20)
+- Smaller grids = larger cells
 
 ### 2. Choose Domain
-- Click "Choose Domain" button (turns green)
-- Click cells to toggle them in/out of domain (green cells)
-- Click button again to finish
+- Click cells to toggle domain (green)
+- Lattice points in domain = corners of domain cells
 
-### 3. Draw Bolt
-- Click "Draw Bolt" button (turns green)
-- Click lattice points (grid intersections) to create path
-- Rules:
-  - Points must be adjacent (one step away)
-  - After first edge, must make 90° turns only
-  - Click starting point again to close loop
-- Bolt automatically closes when valid
+### 3. Draw Bolts
+- Click "Draw New Bolt"
+- Click lattice points (must be in domain)
+- Must make 90° turns after first edge
+- Click starting point to close
+- Gray bolts = unselected, Blue bolt = selected
 
-### 4. Assign Signs
-- After drawing bolt, click "Assign Signs"
+### 4. Select Bolts
+- Click any point on a bolt to select it
+- Selected bolt shows in blue
+- Only selected bolt shows signs
+
+### 5. Assign Signs
+- Select a bolt first
+- Click "Assign Signs"
 - Enter + or - as starting sign
-- Signs alternate along the bolt
-- Green points = +, Red points = -
+- Signs alternate along bolt
+- Green = +, Red = -
 
-### 5. Move Edges
+### 6. Drag Edges
 - Click and drag any edge to move it
-- Vertical edges move left/right
-- Horizontal edges move up/down
-- Movement blocked if endpoints leave domain
+- Vertical edges: move left/right
+- Horizontal edges: move up/down
+- **Merging**: If points merge, signs add:
+  - + and - = 0 (point vanishes)
+  - + and + = +
+  - - and - = -
 
-### 6. Swap Rectangle
-- Click two diagonal corner points
-- Must have matching signs:
-  - (a,b)⁻ and (c,d)⁻ → swap to (a,d) and (c,b)
-  - (a,d)⁺ and (c,b)⁺ → swap to (a,b) and (c,d)
-- All corners must be in domain
+### 7. Rectangle Swap
+- Select a bolt with signs
+- Click two diagonal corners
+- **Negative well-ordered** → non-well-ordered
+- **Positive non-well-ordered** → well-ordered
+- Well-ordered = each coordinate of one point larger than other
 
-## Features
+### 8. Manage Bolts
+- **Delete Selected Bolt**: Remove currently selected bolt
+- **Show Bolt Info**: See all bolts, their properties
+- **Clear All**: Reset everything
 
-✓ Lattice point drawing (not cell centers)
-✓ Controls on left, canvas on right
-✓ Cells scale larger when grid is smaller
-✓ Drag-and-drop edge movement
-✓ Automatic rectangle swap detection
-✓ Visual feedback for all interactions
+## Sign Arithmetic Rules
+
+When dragging edges causes points to merge:
+- `+ + = +` (both positive stays positive)
+- `- - = -` (both negative stays negative)  
+- `+ - = 0` (opposite signs cancel, point vanishes)
+
+When a point vanishes (sign = 0):
+- Point is deleted
+- Its two neighbors become connected
+
+## Rectangle Swap Rules
+
+### Negative Points (well-ordered → non-well-ordered)
+- Given: (i1,j1)⁻ and (i2,j2)⁻ where i1<i2 and j1<j2
+- Result: (i1,j2)⁻ and (i2,j1)⁻
+
+### Positive Points (non-well-ordered → well-ordered)
+- Given: (i1,j1)⁺ and (i2,j2)⁺ where NOT well-ordered
+- Result: Transform to well-ordered positions
+
+## Technical Details
+
+### Bolt Forest Architecture
+```javascript
+bolts = [
+  {
+    points: [[i,j], ...],
+    closed: boolean,
+    signs: Map<pointKey, sign>,
+    composite: boolean
+  },
+  ...
+]
+```
+
+### Composite Bolts
+A bolt is composite if 3+ consecutive points are collinear (on same line parallel to axis). Feature to split composites coming soon!
 
 ## Browser Support
 

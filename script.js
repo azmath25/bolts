@@ -32,54 +32,77 @@ canvas.addEventListener('mousedown', (e) => {
         if (isNearPoint(x, y)) {
             let [i, j] = pointFromCoords(x, y);
             if (addBoltPoint(i, j)) {
-                if (boltClosed) {
-                    updateStatus('Bolt closed! Use "Assign Signs" button.');
-                    boltMode = false;
+                if (!currentBolt) {
+                    updateStatus(`Bolt closed! Select it to assign signs.`);
                     updateButtonStates();
                 } else {
                     updateStatus(`Point (${i},${j}) added`);
                 }
                 drawGrid();
             } else {
-                updateStatus('Invalid! Must be adjacent and make 90° turn');
+                updateStatus('Invalid! Must be in domain, horizontal/vertical, and make 90° turn');
             }
         }
-    } else if (boltPoints.length > 0 && !boltMode) {
-        // Check for point selection (rectangle swap)
-        if (isNearPoint(x, y) && signs.size > 0) {
+    } else {
+        // Check for point selection (for rectangle swap or bolt selection)
+        if (isNearPoint(x, y)) {
             let [i, j] = pointFromCoords(x, y);
-            let pointIdx = findPointIndex(i, j);
-            if (pointIdx >= 0) {
-                if (selectedPoints.includes(pointIdx)) {
-                    selectedPoints = selectedPoints.filter(p => p !== pointIdx);
-                    updateStatus('Point deselected');
-                } else {
-                    selectedPoints.push(pointIdx);
-                    if (selectedPoints.length === 1) {
-                        updateStatus('Select diagonal corner to swap rectangle');
-                    } else if (selectedPoints.length === 2) {
-                        if (swapRectangle(selectedPoints[0], selectedPoints[1])) {
-                            updateStatus('Rectangle swap successful!');
-                            selectedPoints = [];
-                        } else {
-                            updateStatus('Invalid swap - check sign conditions');
+            let pointInfo = findPointNear(x, y);
+            
+            if (pointInfo) {
+                // Select the bolt
+                selectedBoltIndex = pointInfo.boltIndex;
+                
+                // Check if this is for rectangle swap
+                if (bolts[selectedBoltIndex].signs.size > 0) {
+                    let existingIdx = selectedPoints.findIndex(
+                        sp => sp.boltIndex === pointInfo.boltIndex && sp.pointIndex === pointInfo.pointIndex
+                    );
+                    
+                    if (existingIdx >= 0) {
+                        selectedPoints.splice(existingIdx, 1);
+                        updateStatus('Point deselected');
+                    } else {
+                        selectedPoints.push(pointInfo);
+                        
+                        if (selectedPoints.length === 1) {
+                            updateStatus('Select diagonal corner to swap rectangle');
+                        } else if (selectedPoints.length === 2) {
+                            // Check if both from same bolt
+                            if (selectedPoints[0].boltIndex === selectedPoints[1].boltIndex) {
+                                if (swapRectangle(
+                                    selectedPoints[0].boltIndex,
+                                    selectedPoints[0].pointIndex,
+                                    selectedPoints[1].pointIndex
+                                )) {
+                                    updateStatus('Rectangle swap successful!');
+                                } else {
+                                    updateStatus('Invalid swap - check sign conditions');
+                                }
+                            } else {
+                                updateStatus('Points must be from same bolt');
+                            }
                             selectedPoints = [];
                         }
                     }
+                } else {
+                    updateStatus(`Bolt ${selectedBoltIndex + 1} selected. Use "Assign Signs" button.`);
                 }
+                
                 drawGrid();
                 return;
             }
         }
         
         // Check for edge drag
-        let edgeIdx = findEdgeNear(x, y);
-        if (edgeIdx >= 0) {
+        let edgeInfo = findEdgeNear(x, y);
+        if (edgeInfo) {
             isDragging = true;
-            draggedEdge = edgeIdx;
+            draggedEdge = edgeInfo;
             dragStartX = x;
             dragStartY = y;
-            selectedEdge = edgeIdx;
+            selectedEdge = edgeInfo;
+            selectedBoltIndex = edgeInfo.boltIndex;
             canvas.style.cursor = 'grabbing';
             updateStatus('Dragging edge...');
             drawGrid();
@@ -89,7 +112,7 @@ canvas.addEventListener('mousedown', (e) => {
 
 // Mouse move
 canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging || draggedEdge === null) return;
+    if (!isDragging || !draggedEdge) return;
     
     let rect = canvas.getBoundingClientRect();
     let x = e.clientX - rect.left;
@@ -98,9 +121,10 @@ canvas.addEventListener('mousemove', (e) => {
     let dx = x - dragStartX;
     let dy = y - dragStartY;
     
-    let nextIdx = (draggedEdge + 1) % boltPoints.length;
-    let [i1, j1] = boltPoints[draggedEdge];
-    let [i2, j2] = boltPoints[nextIdx];
+    let bolt = bolts[draggedEdge.boltIndex];
+    let nextIdx = (draggedEdge.edgeIndex + 1) % bolt.points.length;
+    let [i1, j1] = bolt.points[draggedEdge.edgeIndex];
+    let [i2, j2] = bolt.points[nextIdx];
     
     if (j1 === j2) {
         // Vertical edge
@@ -108,7 +132,7 @@ canvas.addEventListener('mousemove', (e) => {
         if (steps !== 0) {
             let direction = steps > 0 ? 1 : -1;
             for (let i = 0; i < Math.abs(steps); i++) {
-                if (!moveVerticalEdge(draggedEdge, direction)) break;
+                if (!moveVerticalEdge(draggedEdge.boltIndex, draggedEdge.edgeIndex, direction)) break;
             }
             dragStartX = x;
             drawGrid();
@@ -119,7 +143,7 @@ canvas.addEventListener('mousemove', (e) => {
         if (steps !== 0) {
             let direction = steps > 0 ? 1 : -1;
             for (let i = 0; i < Math.abs(steps); i++) {
-                if (!moveHorizontalEdge(draggedEdge, direction)) break;
+                if (!moveHorizontalEdge(draggedEdge.boltIndex, draggedEdge.edgeIndex, direction)) break;
             }
             dragStartY = y;
             drawGrid();
@@ -151,7 +175,7 @@ canvas.addEventListener('mouseleave', () => {
     }
 });
 
-// Set grid button
+// Set grid
 document.getElementById('setGrid').addEventListener('click', () => {
     n = parseInt(document.getElementById('gridN').value);
     m = parseInt(document.getElementById('gridM').value);
@@ -164,7 +188,7 @@ document.getElementById('setGrid').addEventListener('click', () => {
     updateStatus(`Grid set to ${n} x ${m}`);
 });
 
-// Choose domain button
+// Choose domain
 document.getElementById('chooseDomain').addEventListener('click', () => {
     domainMode = !domainMode;
     boltMode = false;
@@ -174,46 +198,82 @@ document.getElementById('chooseDomain').addEventListener('click', () => {
     drawGrid();
 });
 
-// Draw bolt button
+// Draw bolt
 document.getElementById('drawBolt').addEventListener('click', () => {
     boltMode = !boltMode;
     domainMode = false;
     selectedPoints = [];
+    
     if (boltMode) {
-        clearBolt();
+        startNewBolt();
+        updateStatus('Click lattice points to draw bolt (90° turns only)');
+    } else {
+        currentBolt = null;
+        updateStatus('Bolt mode off');
     }
+    
     updateButtonStates();
-    updateStatus(boltMode ? 'Click lattice points (90° turns only)' : 'Bolt mode off');
     drawGrid();
 });
 
-// Assign signs button
+// Assign signs
 document.getElementById('assignSign').addEventListener('click', () => {
-    if (boltPoints.length > 0) {
+    if (selectedBoltIndex !== null && selectedBoltIndex >= 0 && selectedBoltIndex < bolts.length) {
         let startSign = prompt('Enter starting sign (+ or -):', '+');
         if (startSign === '+' || startSign === '-') {
-            assignSignAt(0, startSign);
-            updateStatus('Signs assigned');
+            assignSignsToBolt(selectedBoltIndex, startSign);
+            updateStatus(`Signs assigned to bolt ${selectedBoltIndex + 1}`);
             drawGrid();
         }
     } else {
-        updateStatus('Draw a bolt first!');
+        updateStatus('Select a bolt first! Click any point on a bolt.');
     }
 });
 
-// Clear all button
+// Delete bolt
+document.getElementById('deleteBolt').addEventListener('click', () => {
+    if (selectedBoltIndex !== null && selectedBoltIndex >= 0 && selectedBoltIndex < bolts.length) {
+        if (confirm(`Delete bolt ${selectedBoltIndex + 1}?`)) {
+            deleteBolt(selectedBoltIndex);
+            updateStatus('Bolt deleted');
+            drawGrid();
+        }
+    } else {
+        updateStatus('Select a bolt first!');
+    }
+});
+
+// Clear all
 document.getElementById('clearAll').addEventListener('click', () => {
     if (confirm('Clear everything?')) {
         clearDomain();
-        clearBolt();
+        clearAllBolts();
         domainMode = false;
         boltMode = false;
         selectedPoints = [];
+        selectedEdge = null;
         isDragging = false;
         draggedEdge = null;
-        selectedEdge = null;
         updateButtonStates();
-        updateStatus('Cleared');
+        updateStatus('All cleared');
         drawGrid();
     }
+});
+
+// Show bolt info
+document.getElementById('boltInfo').addEventListener('click', () => {
+    if (bolts.length === 0) {
+        updateStatus('No bolts yet');
+        return;
+    }
+    
+    let info = `Total bolts: ${bolts.length}\n`;
+    for (let i = 0; i < bolts.length; i++) {
+        let bolt = bolts[i];
+        info += `\nBolt ${i + 1}: ${bolt.points.length} points, `;
+        info += bolt.closed ? 'closed' : 'open';
+        if (bolt.composite) info += ', composite';
+        if (bolt.signs.size > 0) info += `, signed`;
+    }
+    alert(info);
 });
