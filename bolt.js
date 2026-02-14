@@ -146,41 +146,63 @@ function swapRectangle(pointIdx1, pointIdx2) {
     let sign1 = signs.get(pointKey(i1, j1));
     let sign2 = signs.get(pointKey(i2, j2));
     
-    // Determine rectangle corners
-    let a = Math.min(i1, i2);
-    let c = Math.max(i1, i2);
-    let b = Math.min(j1, j2);
-    let d = Math.max(j1, j2);
+    // Both must have same sign
+    if (sign1 !== sign2) return false;
     
-    if (a >= c || b >= d) return false;
+    // Check if points form a rectangle (not on same row or column)
+    if (i1 === i2 || j1 === j2) return false;
     
-    // Check all corners in domain
-    if (!isPointInDomain(a, b) || !isPointInDomain(a, d) || 
-        !isPointInDomain(c, b) || !isPointInDomain(c, d)) {
+    // Get rectangle bounds
+    let minI = Math.min(i1, i2);
+    let maxI = Math.max(i1, i2);
+    let minJ = Math.min(j1, j2);
+    let maxJ = Math.max(j1, j2);
+    
+    // Check all 4 corners are in domain
+    if (!isPointInDomain(minI, minJ) || !isPointInDomain(minI, maxJ) || 
+        !isPointInDomain(maxI, minJ) || !isPointInDomain(maxI, maxJ)) {
         return false;
     }
     
-    // Case 3.1: (a,b) and (c,d) both negative
-    if (i1 === a && j1 === b && i2 === c && j2 === d && sign1 === '-' && sign2 === '-') {
-        boltPoints[pointIdx1] = [a, d];
-        boltPoints[pointIdx2] = [c, b];
+    // Check if well-ordered: each coordinate of one point is larger than the other
+    let wellOrdered = (i1 < i2 && j1 < j2) || (i1 > i2 && j1 > j2);
+    
+    // Case 1: Both NEGATIVE and well-ordered
+    if (sign1 === '-' && wellOrdered) {
+        // Swap (i1,j1) and (i2,j2) to (i1,j2) and (i2,j1)
+        let newPoint1 = [i1, j2];
+        let newPoint2 = [i2, j1];
+        
+        // Update points
+        boltPoints[pointIdx1] = newPoint1;
+        boltPoints[pointIdx2] = newPoint2;
+        
         // Update signs
-        signs.delete(pointKey(a, b));
-        signs.delete(pointKey(c, d));
-        signs.set(pointKey(a, d), '-');
-        signs.set(pointKey(c, b), '-');
+        signs.delete(pointKey(i1, j1));
+        signs.delete(pointKey(i2, j2));
+        signs.set(pointKey(newPoint1[0], newPoint1[1]), '-');
+        signs.set(pointKey(newPoint2[0], newPoint2[1]), '-');
+        
         return true;
     }
     
-    // Case 3.2: (a,d) and (c,b) both positive
-    if (i1 === a && j1 === d && i2 === c && j2 === b && sign1 === '+' && sign2 === '+') {
-        boltPoints[pointIdx1] = [a, b];
-        boltPoints[pointIdx2] = [c, d];
+    // Case 2: Both POSITIVE and NOT well-ordered
+    if (sign1 === '+' && !wellOrdered) {
+        // Swap (i1,j1) and (i2,j2) to make them well-ordered
+        // If i1 < i2 and j1 > j2, swap to (i1,j1) -> (minI,minJ) and (i2,j2) -> (maxI,maxJ)
+        let newPoint1 = [minI, minJ];
+        let newPoint2 = [maxI, maxJ];
+        
+        // Update points
+        boltPoints[pointIdx1] = newPoint1;
+        boltPoints[pointIdx2] = newPoint2;
+        
         // Update signs
-        signs.delete(pointKey(a, d));
-        signs.delete(pointKey(c, b));
-        signs.set(pointKey(a, b), '+');
-        signs.set(pointKey(c, d), '+');
+        signs.delete(pointKey(i1, j1));
+        signs.delete(pointKey(i2, j2));
+        signs.set(pointKey(newPoint1[0], newPoint1[1]), '+');
+        signs.set(pointKey(newPoint2[0], newPoint2[1]), '+');
+        
         return true;
     }
     
