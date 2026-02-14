@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grid Bolt Editor</title>
+    <title>Grid Bolt Forest Editor</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Grid Bolt Editor</h1>
+    <h1>Grid Bolt Forest Editor</h1>
     
     <div class="main-container">
         <div class="left-panel">
@@ -29,8 +29,14 @@
                 
                 <h3>Drawing Tools</h3>
                 <button id="chooseDomain" class="btn-tool">Choose Domain</button>
-                <button id="drawBolt" class="btn-tool">Draw Bolt</button>
+                <button id="drawBolt" class="btn-tool">Draw New Bolt</button>
                 <button id="assignSign" class="btn-tool">Assign Signs</button>
+                
+                <hr>
+                
+                <h3>Bolt Management</h3>
+                <button id="deleteBolt" class="btn-warning">Delete Selected Bolt</button>
+                <button id="boltInfo" class="btn-info">Show Bolt Info</button>
                 
                 <hr>
                 
@@ -39,19 +45,28 @@
             </div>
             
             <div class="instructions">
-                <h3>How to Use:</h3>
+                <h3>Quick Guide:</h3>
                 <ol>
-                    <li><strong>Choose Domain:</strong> Click cells to mark allowed region</li>
-                    <li><strong>Draw Bolt:</strong> Click lattice points. Must make 90° turns. Close by clicking start.</li>
-                    <li><strong>Assign Signs:</strong> Add +/- signs (alternating)</li>
-                    <li><strong>Move Edges:</strong> Click and drag any edge</li>
-                    <li><strong>Swap Rectangle:</strong> Click two diagonal corners with matching signs</li>
+                    <li><strong>Domain:</strong> Click cells (green)</li>
+                    <li><strong>Draw:</strong> Click points, make 90° turns</li>
+                    <li><strong>Select:</strong> Click any bolt point</li>
+                    <li><strong>Signs:</strong> Assign +/- (alternating)</li>
+                    <li><strong>Move:</strong> Drag edges</li>
+                    <li><strong>Swap:</strong> Click 2 diagonal corners</li>
                 </ol>
+                
+                <h3>Features:</h3>
+                <ul>
+                    <li>Multiple bolts</li>
+                    <li>Shared vertices</li>
+                    <li>Sign arithmetic: +- = 0</li>
+                    <li>Auto forest splitting</li>
+                </ul>
             </div>
         </div>
         
         <div class="right-panel">
-            <div id="status" class="status">Ready. Choose a domain or draw a bolt to begin.</div>
+            <div id="status" class="status">Ready. Create domain and draw bolts.</div>
             <div class="canvas-container">
                 <canvas id="gridCanvas"></canvas>
             </div>
