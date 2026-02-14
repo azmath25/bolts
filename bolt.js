@@ -4,24 +4,27 @@ let signs = new Map();
 let boltClosed = false;
 let selectedPoints = [];
 let selectedEdge = null;
-let moveMode = null; // 'edge' or 'rect'
 
 function addBoltPoint(i,j){
     if (boltClosed) return false;
+    
+    // Check if point is in domain
+    if (!isPointInDomain(i, j)) return false;
     
     // Check if closing the loop
     if (boltPoints.length > 2) {
         let [si,sj] = boltPoints[0];
         if (i===si && j===sj) {
             let [pi,pj] = boltPoints[boltPoints.length-1];
-            let di=i-pi, dj=j-pj;
-            if (Math.abs(di)+Math.abs(dj)===1) {
-                let [pi2,pj2]=boltPoints[boltPoints.length-2];
-                if (validTurn([pi2,pj2],[pi,pj],[i,j])){
-                    boltMode=false;
-                    boltClosed=true;
-                    return true;
-                }
+            // Check if edge is horizontal or vertical
+            if (pi !== i && pj !== j) return false; // diagonal not allowed
+            if (pi === i && pj === j) return false; // same point
+            
+            let [pi2,pj2]=boltPoints[boltPoints.length-2];
+            if (validTurn([pi2,pj2],[pi,pj],[i,j])){
+                boltMode=false;
+                boltClosed=true;
+                return true;
             }
             return false;
         }
@@ -33,14 +36,14 @@ function addBoltPoint(i,j){
     }
     
     let [pi,pj] = boltPoints[boltPoints.length-1];
-    let di=i-pi, dj=j-pj;
     
-    // Must be adjacent
-    if (Math.abs(di)+Math.abs(dj)!==1){
-        return false;
-    }
+    // Check if edge is horizontal or vertical (not diagonal)
+    if (pi !== i && pj !== j) return false;
     
-    // First edge can go anywhere adjacent
+    // Can't be the same point
+    if (pi === i && pj === j) return false;
+    
+    // First edge can go anywhere (as long as it's horizontal or vertical)
     if (boltPoints.length===1){
         boltPoints.push([i,j]);
         return true;
@@ -57,27 +60,23 @@ function addBoltPoint(i,j){
 }
 
 function assignSignAt(index, startSign='+'){
-    signs = assignAlternatingSigns(boltPoints.slice(index).concat(boltPoints.slice(0,index)), startSign);
+    signs = assignAlternatingSigns(boltPoints, startSign);
 }
 
 function isPointInDomain(i, j) {
-    return domainCells.includes(pointKey(i, j));
-}
-
-function findEdgeContainingPoint(i, j) {
-    for (let k = 0; k < boltPoints.length; k++) {
-        let [i1, j1] = boltPoints[k];
-        if (i1 === i && j1 === j) {
-            // Check if this point is part of an edge
-            if (k < boltPoints.length - 1) {
-                return k;
-            }
-            if (boltClosed && k === boltPoints.length - 1) {
-                return k; // Last point connects to first
-            }
-        }
-    }
-    return -1;
+    // A lattice point (i,j) is in domain if it's a corner of any domain cell
+    // Check all 4 possible cells that could have (i,j) as a corner:
+    // Cell (i-1, j-1) has corners (i-1,j-1), (i-1,j), (i,j-1), (i,j)
+    // Cell (i-1, j) has corners (i-1,j), (i-1,j+1), (i,j), (i,j+1)
+    // Cell (i, j-1) has corners (i,j-1), (i,j), (i+1,j-1), (i+1,j)
+    // Cell (i, j) has corners (i,j), (i,j+1), (i+1,j), (i+1,j+1)
+    
+    if (domainCells.includes(pointKey(i-1, j-1))) return true;
+    if (domainCells.includes(pointKey(i-1, j))) return true;
+    if (domainCells.includes(pointKey(i, j-1))) return true;
+    if (domainCells.includes(pointKey(i, j))) return true;
+    
+    return false;
 }
 
 function findPointIndex(i, j) {
@@ -92,6 +91,7 @@ function findPointIndex(i, j) {
 
 function moveVerticalEdge(edgeIndex, direction) {
     let nextIdx = (edgeIndex + 1) % boltPoints.length;
+    if (!boltClosed && edgeIndex === boltPoints.length - 1) return false;
     
     let [i1, j1] = boltPoints[edgeIndex];
     let [i2, j2] = boltPoints[nextIdx];
@@ -115,6 +115,7 @@ function moveVerticalEdge(edgeIndex, direction) {
 
 function moveHorizontalEdge(edgeIndex, direction) {
     let nextIdx = (edgeIndex + 1) % boltPoints.length;
+    if (!boltClosed && edgeIndex === boltPoints.length - 1) return false;
     
     let [i1, j1] = boltPoints[edgeIndex];
     let [i2, j2] = boltPoints[nextIdx];
@@ -145,41 +146,63 @@ function swapRectangle(pointIdx1, pointIdx2) {
     let sign1 = signs.get(pointKey(i1, j1));
     let sign2 = signs.get(pointKey(i2, j2));
     
-    // Determine rectangle corners
-    let a = Math.min(i1, i2);
-    let c = Math.max(i1, i2);
-    let b = Math.min(j1, j2);
-    let d = Math.max(j1, j2);
+    // Both must have same sign
+    if (sign1 !== sign2) return false;
     
-    if (a >= c || b >= d) return false;
+    // Check if points form a rectangle (not on same row or column)
+    if (i1 === i2 || j1 === j2) return false;
     
-    // Check all corners in domain
-    if (!isPointInDomain(a, b) || !isPointInDomain(a, d) || 
-        !isPointInDomain(c, b) || !isPointInDomain(c, d)) {
+    // Get rectangle bounds
+    let minI = Math.min(i1, i2);
+    let maxI = Math.max(i1, i2);
+    let minJ = Math.min(j1, j2);
+    let maxJ = Math.max(j1, j2);
+    
+    // Check all 4 corners are in domain
+    if (!isPointInDomain(minI, minJ) || !isPointInDomain(minI, maxJ) || 
+        !isPointInDomain(maxI, minJ) || !isPointInDomain(maxI, maxJ)) {
         return false;
     }
     
-    // Case 3.1: (a,b) and (c,d) both negative
-    if (i1 === a && j1 === b && i2 === c && j2 === d && sign1 === '-' && sign2 === '-') {
-        boltPoints[pointIdx1] = [a, d];
-        boltPoints[pointIdx2] = [c, b];
+    // Check if well-ordered: each coordinate of one point is larger than the other
+    let wellOrdered = (i1 < i2 && j1 < j2) || (i1 > i2 && j1 > j2);
+    
+    // Case 1: Both NEGATIVE and well-ordered
+    if (sign1 === '-' && wellOrdered) {
+        // Swap (i1,j1) and (i2,j2) to (i1,j2) and (i2,j1)
+        let newPoint1 = [i1, j2];
+        let newPoint2 = [i2, j1];
+        
+        // Update points
+        boltPoints[pointIdx1] = newPoint1;
+        boltPoints[pointIdx2] = newPoint2;
+        
         // Update signs
-        signs.set(pointKey(a, d), '-');
-        signs.set(pointKey(c, b), '-');
-        signs.delete(pointKey(a, b));
-        signs.delete(pointKey(c, d));
+        signs.delete(pointKey(i1, j1));
+        signs.delete(pointKey(i2, j2));
+        signs.set(pointKey(newPoint1[0], newPoint1[1]), '-');
+        signs.set(pointKey(newPoint2[0], newPoint2[1]), '-');
+        
         return true;
     }
     
-    // Case 3.2: (a,d) and (c,b) both positive
-    if (i1 === a && j1 === d && i2 === c && j2 === b && sign1 === '+' && sign2 === '+') {
-        boltPoints[pointIdx1] = [a, b];
-        boltPoints[pointIdx2] = [c, d];
+    // Case 2: Both POSITIVE and NOT well-ordered
+    if (sign1 === '+' && !wellOrdered) {
+        // Swap (i1,j1) and (i2,j2) to make them well-ordered
+        // If i1 < i2 and j1 > j2, swap to (i1,j1) -> (minI,minJ) and (i2,j2) -> (maxI,maxJ)
+        let newPoint1 = [minI, minJ];
+        let newPoint2 = [maxI, maxJ];
+        
+        // Update points
+        boltPoints[pointIdx1] = newPoint1;
+        boltPoints[pointIdx2] = newPoint2;
+        
         // Update signs
-        signs.set(pointKey(a, b), '+');
-        signs.set(pointKey(c, d), '+');
-        signs.delete(pointKey(a, d));
-        signs.delete(pointKey(c, b));
+        signs.delete(pointKey(i1, j1));
+        signs.delete(pointKey(i2, j2));
+        signs.set(pointKey(newPoint1[0], newPoint1[1]), '+');
+        signs.set(pointKey(newPoint2[0], newPoint2[1]), '+');
+        
         return true;
     }
     
