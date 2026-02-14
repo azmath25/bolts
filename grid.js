@@ -4,18 +4,16 @@ const ctx = canvas.getContext('2d');
 let n = 10, m = 10;
 let cellSize = 40;
 const CANVAS_SIZE = 600;
-const SCALE = 2;
 
 let selectedEdge = null; // {boltIndex, edgeIndex}
 let selectedPoints = []; // {boltIndex, pointIndex}
 
 function resizeCanvas() {
     cellSize = Math.floor(CANVAS_SIZE / Math.max(n, m));
-    canvas.width = m * cellSize * SCALE;
-    canvas.height = n * cellSize * SCALE;
-    canvas.style.width = (m * cellSize) + 'px';
-    canvas.style.height = (n * cellSize) + 'px';
-    ctx.scale(SCALE, SCALE);
+    canvas.width = m * cellSize;
+    canvas.height = n * cellSize;
+    
+    // Enable smooth rendering
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 }
