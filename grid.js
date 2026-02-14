@@ -4,30 +4,38 @@ const ctx = canvas.getContext('2d');
 let n = 10, m = 10;
 let cellSize = 40;
 const CANVAS_SIZE = 600;
+const SCALE = 2; // For crisp rendering on high-DPI displays
 
 function resizeCanvas() {
     cellSize = Math.floor(CANVAS_SIZE / Math.max(n, m));
-    canvas.width = m * cellSize;
-    canvas.height = n * cellSize;
+    canvas.width = m * cellSize * SCALE;
+    canvas.height = n * cellSize * SCALE;
+    canvas.style.width = (m * cellSize) + 'px';
+    canvas.style.height = (n * cellSize) + 'px';
+    ctx.scale(SCALE, SCALE);
+    
+    // Enable smooth rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 }
 
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw domain cells
-    ctx.globalAlpha = 0.25;
+    // Draw domain cells with vibrant color
+    ctx.globalAlpha = 0.4;
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < m; j++) {
             if (domainCells.includes(pointKey(i, j))) {
-                ctx.fillStyle = '#66ff66';
+                ctx.fillStyle = '#4ade80'; // Vibrant green
                 ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
             }
         }
     }
     ctx.globalAlpha = 1.0;
 
-    // Grid lines
-    ctx.strokeStyle = '#ddd';
+    // Grid lines - lighter and cleaner
+    ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     for (let i = 0; i <= n; i++) {
         ctx.beginPath();
@@ -42,20 +50,22 @@ function drawGrid() {
         ctx.stroke();
     }
 
-    // Draw lattice points
-    ctx.fillStyle = '#999';
+    // Draw lattice points - smaller and darker for contrast
+    ctx.fillStyle = '#6b7280';
     for (let i = 0; i <= n; i++) {
         for (let j = 0; j <= m; j++) {
             ctx.beginPath();
-            ctx.arc(j * cellSize, i * cellSize, 2, 0, 2 * Math.PI);
+            ctx.arc(j * cellSize, i * cellSize, 3, 0, 2 * Math.PI);
             ctx.fill();
         }
     }
 
     // Draw bolt edges
     if (boltPoints.length > 1) {
-        ctx.strokeStyle = '#0066ff';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#3b82f6'; // Bright blue
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
         let [i0, j0] = boltPoints[0];
         ctx.moveTo(j0 * cellSize, i0 * cellSize);
@@ -76,8 +86,9 @@ function drawGrid() {
             let [i1, j1] = boltPoints[selectedEdge];
             let [i2, j2] = boltPoints[nextIdx];
             
-            ctx.strokeStyle = '#ff6600';
-            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#f59e0b'; // Bright orange
+            ctx.lineWidth = 7;
+            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(j1 * cellSize, i1 * cellSize);
             ctx.lineTo(j2 * cellSize, i2 * cellSize);
@@ -93,30 +104,36 @@ function drawGrid() {
         // Color based on sign
         let sign = signs.get(key);
         if (sign === '+') {
-            ctx.fillStyle = '#00aa00';
+            ctx.fillStyle = '#22c55e'; // Bright green
         } else if (sign === '-') {
-            ctx.fillStyle = '#dd0000';
+            ctx.fillStyle = '#ef4444'; // Bright red
         } else {
-            ctx.fillStyle = '#0066ff';
+            ctx.fillStyle = '#3b82f6'; // Bright blue
         }
         
+        // Draw outer circle
         ctx.beginPath();
-        ctx.arc(j * cellSize, i * cellSize, 8, 0, 2 * Math.PI);
+        ctx.arc(j * cellSize, i * cellSize, 10, 0, 2 * Math.PI);
         ctx.fill();
+        
+        // Draw white border
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         
         // Highlight selected points
         if (selectedPoints.includes(k)) {
-            ctx.strokeStyle = '#ffaa00';
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#fbbf24'; // Golden yellow
+            ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.arc(j * cellSize, i * cellSize, 12, 0, 2 * Math.PI);
+            ctx.arc(j * cellSize, i * cellSize, 14, 0, 2 * Math.PI);
             ctx.stroke();
         }
         
         // Draw sign label
         if (sign) {
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 14px sans-serif';
+            ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(sign, j * cellSize, i * cellSize);

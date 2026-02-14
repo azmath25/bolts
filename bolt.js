@@ -8,19 +8,23 @@ let selectedEdge = null;
 function addBoltPoint(i,j){
     if (boltClosed) return false;
     
+    // Check if point is in domain
+    if (!isPointInDomain(i, j)) return false;
+    
     // Check if closing the loop
     if (boltPoints.length > 2) {
         let [si,sj] = boltPoints[0];
         if (i===si && j===sj) {
             let [pi,pj] = boltPoints[boltPoints.length-1];
-            let di=i-pi, dj=j-pj;
-            if (Math.abs(di)+Math.abs(dj)===1) {
-                let [pi2,pj2]=boltPoints[boltPoints.length-2];
-                if (validTurn([pi2,pj2],[pi,pj],[i,j])){
-                    boltMode=false;
-                    boltClosed=true;
-                    return true;
-                }
+            // Check if edge is horizontal or vertical
+            if (pi !== i && pj !== j) return false; // diagonal not allowed
+            if (pi === i && pj === j) return false; // same point
+            
+            let [pi2,pj2]=boltPoints[boltPoints.length-2];
+            if (validTurn([pi2,pj2],[pi,pj],[i,j])){
+                boltMode=false;
+                boltClosed=true;
+                return true;
             }
             return false;
         }
@@ -32,14 +36,14 @@ function addBoltPoint(i,j){
     }
     
     let [pi,pj] = boltPoints[boltPoints.length-1];
-    let di=i-pi, dj=j-pj;
     
-    // Must be adjacent
-    if (Math.abs(di)+Math.abs(dj)!==1){
-        return false;
-    }
+    // Check if edge is horizontal or vertical (not diagonal)
+    if (pi !== i && pj !== j) return false;
     
-    // First edge can go anywhere adjacent
+    // Can't be the same point
+    if (pi === i && pj === j) return false;
+    
+    // First edge can go anywhere (as long as it's horizontal or vertical)
     if (boltPoints.length===1){
         boltPoints.push([i,j]);
         return true;
@@ -60,7 +64,19 @@ function assignSignAt(index, startSign='+'){
 }
 
 function isPointInDomain(i, j) {
-    return domainCells.includes(pointKey(i, j));
+    // A lattice point (i,j) is in domain if it's a corner of any domain cell
+    // Check all 4 possible cells that could have (i,j) as a corner:
+    // Cell (i-1, j-1) has corners (i-1,j-1), (i-1,j), (i,j-1), (i,j)
+    // Cell (i-1, j) has corners (i-1,j), (i-1,j+1), (i,j), (i,j+1)
+    // Cell (i, j-1) has corners (i,j-1), (i,j), (i+1,j-1), (i+1,j)
+    // Cell (i, j) has corners (i,j), (i,j+1), (i+1,j), (i+1,j+1)
+    
+    if (domainCells.includes(pointKey(i-1, j-1))) return true;
+    if (domainCells.includes(pointKey(i-1, j))) return true;
+    if (domainCells.includes(pointKey(i, j-1))) return true;
+    if (domainCells.includes(pointKey(i, j))) return true;
+    
+    return false;
 }
 
 function findPointIndex(i, j) {
