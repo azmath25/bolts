@@ -1,111 +1,183 @@
-// Initialization
+// Initialize
 resizeCanvas();
-drawGrid(domainCells, boltPoints, signs);
+drawGrid();
 
-// Status display
+let isDragging = false;
+let draggedEdge = null;
+let dragStartX, dragStartY;
+
 function updateStatus(message) {
-    let statusDiv = document.getElementById('status');
-    if (statusDiv) {
-        statusDiv.textContent = message;
-    }
+    document.getElementById('status').textContent = message;
 }
 
-canvas.addEventListener('click',(e)=>{
+function updateButtonStates() {
+    document.getElementById('chooseDomain').classList.toggle('active', domainMode);
+    document.getElementById('drawBolt').classList.toggle('active', boltMode);
+}
+
+// Mouse down
+canvas.addEventListener('mousedown', (e) => {
     let rect = canvas.getBoundingClientRect();
     let x = e.clientX - rect.left;
     let y = e.clientY - rect.top;
     
     if (domainMode) {
-        let [i,j] = cellFromCoords(x,y);
+        let [i, j] = cellFromCoords(x, y);
         if (i >= 0 && i < n && j >= 0 && j < m) {
-            toggleDomain(i,j);
+            toggleDomain(i, j);
             updateStatus(`Domain cell (${i},${j}) toggled`);
+            drawGrid();
         }
     } else if (boltMode) {
         if (isNearPoint(x, y)) {
-            let [i,j] = pointFromCoords(x, y);
-            if (addBoltPoint(i,j)){
-                if (boltClosed) {
-                    updateStatus('Bolt closed! Use "Assign Sign" to add signs.');
+            let [i, j] = pointFromCoords(x, y);
+            if (addBoltPoint(i, j)) {
+                if (!currentBolt) {
+                    // Bolt was just closed, start a new one automatically
+                    updateStatus(`Bolt ${selectedBoltIndex + 1} closed! Click to start new bolt.`);
+                    startNewBolt(); // Auto-start new bolt
                 } else {
-                    updateStatus(`Point (${i},${j}) added to bolt`);
+                    updateStatus(`Point (${i},${j}) added`);
                 }
+                drawGrid();
             } else {
-                updateStatus('Invalid point! Must be adjacent and make 90° turn.');
+                updateStatus('Invalid! Must be in domain, horizontal/vertical, and make 90° turn');
             }
         }
-    } else if (moveMode === 'edge') {
+    } else {
+        // Check for point selection (for rectangle swap or bolt selection)
         if (isNearPoint(x, y)) {
-            let [i,j] = pointFromCoords(x, y);
-            let edgeIdx = findEdgeContainingPoint(i, j);
-            if (edgeIdx >= 0) {
-                selectedEdge = edgeIdx;
-                updateStatus(`Edge selected. Use arrow keys to move (horizontal: ←→, vertical: ↑↓)`);
-            }
-        }
-    } else if (moveMode === 'rect') {
-        if (isNearPoint(x, y)) {
-            let [i,j] = pointFromCoords(x, y);
-            let pointIdx = findPointIndex(i, j);
-            if (pointIdx >= 0) {
-                if (selectedPoints.includes(pointIdx)) {
-                    selectedPoints = selectedPoints.filter(p => p !== pointIdx);
-                    updateStatus(`Point deselected`);
-                } else {
-                    selectedPoints.push(pointIdx);
-                    updateStatus(`Point selected. Select another point to swap rectangle.`);
+            let [i, j] = pointFromCoords(x, y);
+            let pointInfo = findPointNear(x, y);
+            
+            if (pointInfo) {
+                // Select the bolt
+                selectedBoltIndex = pointInfo.boltIndex;
+                
+                // Check if this is for rectangle swap
+                if (bolts[selectedBoltIndex].signs.size > 0) {
+                    let existingIdx = selectedPoints.findIndex(
+                        sp => sp.boltIndex === pointInfo.boltIndex && sp.pointIndex === pointInfo.pointIndex
+                    );
                     
-                    if (selectedPoints.length === 2) {
-                        if (swapRectangle(selectedPoints[0], selectedPoints[1])) {
-                            updateStatus('Rectangle swap successful!');
-                            selectedPoints = [];
-                            moveMode = null;
-                        } else {
-                            updateStatus('Invalid rectangle swap. Check conditions.');
+                    if (existingIdx >= 0) {
+                        selectedPoints.splice(existingIdx, 1);
+                        updateStatus('Point deselected');
+                    } else {
+                        selectedPoints.push(pointInfo);
+                        
+                        if (selectedPoints.length === 1) {
+                            updateStatus('Select diagonal corner to swap rectangle');
+                        } else if (selectedPoints.length === 2) {
+                            // Check if both from same bolt
+                            if (selectedPoints[0].boltIndex === selectedPoints[1].boltIndex) {
+                                if (swapRectangle(
+                                    selectedPoints[0].boltIndex,
+                                    selectedPoints[0].pointIndex,
+                                    selectedPoints[1].pointIndex
+                                )) {
+                                    updateStatus('Rectangle swap successful!');
+                                } else {
+                                    updateStatus('Invalid swap - check sign conditions');
+                                }
+                            } else {
+                                updateStatus('Points must be from same bolt');
+                            }
                             selectedPoints = [];
                         }
                     }
+                } else {
+                    updateStatus(`Bolt ${selectedBoltIndex + 1} selected. Use "Assign Signs" button.`);
                 }
+                
+                drawGrid();
+                return;
             }
         }
+        
+        // Check for edge drag
+        let edgeInfo = findEdgeNear(x, y);
+        if (edgeInfo) {
+            isDragging = true;
+            draggedEdge = edgeInfo;
+            dragStartX = x;
+            dragStartY = y;
+            selectedEdge = edgeInfo;
+            selectedBoltIndex = edgeInfo.boltIndex;
+            canvas.style.cursor = 'grabbing';
+            updateStatus('Dragging edge...');
+            drawGrid();
+        }
     }
+});
+
+// Mouse move
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging || !draggedEdge) return;
     
-    drawGrid(domainCells, boltPoints, signs);
-});
-
-// Keyboard controls for edge movement
-document.addEventListener('keydown', (e) => {
-    if (moveMode === 'edge' && selectedEdge !== null) {
-        let moved = false;
-        let nextIdx = (selectedEdge + 1) % boltPoints.length;
-        let [i1, j1] = boltPoints[selectedEdge];
-        let [i2, j2] = boltPoints[nextIdx];
-        
-        if (e.key === 'ArrowLeft' && j1 === j2) {
-            moved = moveVerticalEdge(selectedEdge, -1);
-        } else if (e.key === 'ArrowRight' && j1 === j2) {
-            moved = moveVerticalEdge(selectedEdge, 1);
-        } else if (e.key === 'ArrowUp' && i1 === i2) {
-            moved = moveHorizontalEdge(selectedEdge, -1);
-        } else if (e.key === 'ArrowDown' && i1 === i2) {
-            moved = moveHorizontalEdge(selectedEdge, 1);
-        } else if (e.key === 'Escape') {
-            selectedEdge = null;
-            updateStatus('Edge deselected');
-            drawGrid(domainCells, boltPoints, signs);
-            return;
+    let rect = canvas.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+    
+    let dx = x - dragStartX;
+    let dy = y - dragStartY;
+    
+    let bolt = bolts[draggedEdge.boltIndex];
+    let nextIdx = (draggedEdge.edgeIndex + 1) % bolt.points.length;
+    let [i1, j1] = bolt.points[draggedEdge.edgeIndex];
+    let [i2, j2] = bolt.points[nextIdx];
+    
+    if (j1 === j2) {
+        // Vertical edge
+        let steps = Math.round(dx / cellSize);
+        if (steps !== 0) {
+            let direction = steps > 0 ? 1 : -1;
+            for (let i = 0; i < Math.abs(steps); i++) {
+                if (!moveVerticalEdge(draggedEdge.boltIndex, draggedEdge.edgeIndex, direction)) break;
+            }
+            dragStartX = x;
+            drawGrid();
         }
-        
-        if (moved) {
-            updateStatus('Edge moved successfully!');
-            drawGrid(domainCells, boltPoints, signs);
-        } else if (e.key.startsWith('Arrow')) {
-            updateStatus('Cannot move edge: endpoints would leave domain');
+    } else if (i1 === i2) {
+        // Horizontal edge
+        let steps = Math.round(dy / cellSize);
+        if (steps !== 0) {
+            let direction = steps > 0 ? 1 : -1;
+            for (let i = 0; i < Math.abs(steps); i++) {
+                if (!moveHorizontalEdge(draggedEdge.boltIndex, draggedEdge.edgeIndex, direction)) break;
+            }
+            dragStartY = y;
+            drawGrid();
         }
     }
 });
 
-document.getElementById('setGrid').addEventListener('click', ()=>{
+// Mouse up
+canvas.addEventListener('mouseup', () => {
+    if (isDragging) {
+        isDragging = false;
+        draggedEdge = null;
+        selectedEdge = null;
+        canvas.style.cursor = 'crosshair';
+        updateStatus('Edge moved');
+        drawGrid();
+    }
+});
+
+// Mouse leave
+canvas.addEventListener('mouseleave', () => {
+    if (isDragging) {
+        isDragging = false;
+        draggedEdge = null;
+        selectedEdge = null;
+        canvas.style.cursor = 'crosshair';
+        updateStatus('Drag cancelled');
+        drawGrid();
+    }
+});
+
+// Set grid
+document.getElementById('setGrid').addEventListener('click', () => {
     n = parseInt(document.getElementById('gridN').value);
     m = parseInt(document.getElementById('gridM').value);
     n = Math.max(5, Math.min(20, n));
@@ -113,96 +185,96 @@ document.getElementById('setGrid').addEventListener('click', ()=>{
     document.getElementById('gridN').value = n;
     document.getElementById('gridM').value = m;
     resizeCanvas();
-    drawGrid(domainCells, boltPoints, signs);
+    drawGrid();
     updateStatus(`Grid set to ${n} x ${m}`);
 });
 
-document.getElementById('chooseDomain').addEventListener('click', ()=>{
+// Choose domain
+document.getElementById('chooseDomain').addEventListener('click', () => {
     domainMode = !domainMode;
     boltMode = false;
-    moveMode = null;
-    selectedEdge = null;
     selectedPoints = [];
-    
-    document.getElementById('chooseDomain').textContent = domainMode ? 'Stop Domain' : 'Choose Domain';
+    updateButtonStates();
     updateStatus(domainMode ? 'Click cells to toggle domain' : 'Domain mode off');
-    drawGrid(domainCells, boltPoints, signs);
+    drawGrid();
 });
 
-document.getElementById('drawBolt').addEventListener('click', ()=>{
-    domainMode = false;
+// Draw bolt
+document.getElementById('drawBolt').addEventListener('click', () => {
     boltMode = !boltMode;
-    moveMode = null;
-    selectedEdge = null;
+    domainMode = false;
     selectedPoints = [];
     
     if (boltMode) {
-        clearBolt();
+        startNewBolt();
+        updateStatus('Click lattice points to draw bolt (90° turns only)');
+    } else {
+        currentBolt = null;
+        updateStatus('Bolt mode off');
     }
     
-    document.getElementById('drawBolt').textContent = boltMode ? 'Stop Drawing' : 'Draw Bolt';
-    updateStatus(boltMode ? 'Click lattice points to draw bolt (must make 90° turns)' : 'Bolt mode off');
-    drawGrid(domainCells, boltPoints, signs);
+    updateButtonStates();
+    drawGrid();
 });
 
-document.getElementById('assignSign').addEventListener('click', ()=>{
-    if (boltPoints.length > 0) {
+// Assign signs
+document.getElementById('assignSign').addEventListener('click', () => {
+    if (selectedBoltIndex !== null && selectedBoltIndex >= 0 && selectedBoltIndex < bolts.length) {
         let startSign = prompt('Enter starting sign (+ or -):', '+');
         if (startSign === '+' || startSign === '-') {
-            assignSignAt(0, startSign);
-            updateStatus('Signs assigned to bolt points');
-            drawGrid(domainCells, boltPoints, signs);
+            assignSignsToBolt(selectedBoltIndex, startSign);
+            updateStatus(`Signs assigned to bolt ${selectedBoltIndex + 1}`);
+            drawGrid();
         }
     } else {
-        updateStatus('Draw a bolt first!');
+        updateStatus('Select a bolt first! Click any point on a bolt.');
     }
 });
 
-document.getElementById('moveEdge').addEventListener('click', ()=>{
-    domainMode = false;
-    boltMode = false;
-    moveMode = moveMode === 'edge' ? null : 'edge';
-    selectedEdge = null;
-    selectedPoints = [];
-    
-    document.getElementById('moveEdge').textContent = moveMode === 'edge' ? 'Stop Moving' : 'Move Edge';
-    updateStatus(moveMode === 'edge' ? 'Click an edge, then use arrow keys to move it' : 'Edge move mode off');
-    drawGrid(domainCells, boltPoints, signs);
+// Delete bolt
+document.getElementById('deleteBolt').addEventListener('click', () => {
+    if (selectedBoltIndex !== null && selectedBoltIndex >= 0 && selectedBoltIndex < bolts.length) {
+        if (confirm(`Delete bolt ${selectedBoltIndex + 1}?`)) {
+            deleteBolt(selectedBoltIndex);
+            updateStatus('Bolt deleted');
+            drawGrid();
+        }
+    } else {
+        updateStatus('Select a bolt first!');
+    }
 });
 
-document.getElementById('swapRect').addEventListener('click', ()=>{
-    if (signs.size === 0) {
-        updateStatus('Assign signs first!');
+// Clear all
+document.getElementById('clearAll').addEventListener('click', () => {
+    if (confirm('Clear everything?')) {
+        clearDomain();
+        clearAllBolts();
+        domainMode = false;
+        boltMode = false;
+        selectedPoints = [];
+        selectedEdge = null;
+        isDragging = false;
+        draggedEdge = null;
+        updateButtonStates();
+        updateStatus('All cleared');
+        drawGrid();
+    }
+});
+
+// Show bolt info
+document.getElementById('boltInfo').addEventListener('click', () => {
+    if (bolts.length === 0) {
+        updateStatus('No bolts yet');
         return;
     }
     
-    domainMode = false;
-    boltMode = false;
-    moveMode = moveMode === 'rect' ? null : 'rect';
-    selectedEdge = null;
-    selectedPoints = [];
-    
-    document.getElementById('swapRect').textContent = moveMode === 'rect' ? 'Stop Swapping' : 'Swap Rectangle';
-    updateStatus(moveMode === 'rect' ? 'Select two points to swap rectangle' : 'Rectangle swap mode off');
-    drawGrid(domainCells, boltPoints, signs);
-});
-
-document.getElementById('clearAll').addEventListener('click', ()=>{
-    if (confirm('Clear everything?')) {
-        clearDomain();
-        clearBolt();
-        domainMode = false;
-        boltMode = false;
-        moveMode = null;
-        selectedEdge = null;
-        selectedPoints = [];
-        
-        document.getElementById('chooseDomain').textContent = 'Choose Domain';
-        document.getElementById('drawBolt').textContent = 'Draw Bolt';
-        document.getElementById('moveEdge').textContent = 'Move Edge';
-        document.getElementById('swapRect').textContent = 'Swap Rectangle';
-        
-        updateStatus('All cleared');
-        drawGrid(domainCells, boltPoints, signs);
+    let info = `Total bolts: ${bolts.length}\n`;
+    for (let i = 0; i < bolts.length; i++) {
+        let bolt = bolts[i];
+        info += `\nBolt ${i + 1}: ${bolt.points.length} points, `;
+        info += bolt.closed ? 'closed' : 'open';
+        if (bolt.composite) info += ', composite';
+        if (bolt.signs.size > 0) info += `, signed`;
     }
+    alert(info);
 });
