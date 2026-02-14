@@ -4,7 +4,6 @@ let signs = new Map();
 let boltClosed = false;
 let selectedPoints = [];
 let selectedEdge = null;
-let moveMode = null; // 'edge' or 'rect'
 
 function addBoltPoint(i,j){
     if (boltClosed) return false;
@@ -57,27 +56,11 @@ function addBoltPoint(i,j){
 }
 
 function assignSignAt(index, startSign='+'){
-    signs = assignAlternatingSigns(boltPoints.slice(index).concat(boltPoints.slice(0,index)), startSign);
+    signs = assignAlternatingSigns(boltPoints, startSign);
 }
 
 function isPointInDomain(i, j) {
     return domainCells.includes(pointKey(i, j));
-}
-
-function findEdgeContainingPoint(i, j) {
-    for (let k = 0; k < boltPoints.length; k++) {
-        let [i1, j1] = boltPoints[k];
-        if (i1 === i && j1 === j) {
-            // Check if this point is part of an edge
-            if (k < boltPoints.length - 1) {
-                return k;
-            }
-            if (boltClosed && k === boltPoints.length - 1) {
-                return k; // Last point connects to first
-            }
-        }
-    }
-    return -1;
 }
 
 function findPointIndex(i, j) {
@@ -92,6 +75,7 @@ function findPointIndex(i, j) {
 
 function moveVerticalEdge(edgeIndex, direction) {
     let nextIdx = (edgeIndex + 1) % boltPoints.length;
+    if (!boltClosed && edgeIndex === boltPoints.length - 1) return false;
     
     let [i1, j1] = boltPoints[edgeIndex];
     let [i2, j2] = boltPoints[nextIdx];
@@ -115,6 +99,7 @@ function moveVerticalEdge(edgeIndex, direction) {
 
 function moveHorizontalEdge(edgeIndex, direction) {
     let nextIdx = (edgeIndex + 1) % boltPoints.length;
+    if (!boltClosed && edgeIndex === boltPoints.length - 1) return false;
     
     let [i1, j1] = boltPoints[edgeIndex];
     let [i2, j2] = boltPoints[nextIdx];
@@ -164,10 +149,10 @@ function swapRectangle(pointIdx1, pointIdx2) {
         boltPoints[pointIdx1] = [a, d];
         boltPoints[pointIdx2] = [c, b];
         // Update signs
-        signs.set(pointKey(a, d), '-');
-        signs.set(pointKey(c, b), '-');
         signs.delete(pointKey(a, b));
         signs.delete(pointKey(c, d));
+        signs.set(pointKey(a, d), '-');
+        signs.set(pointKey(c, b), '-');
         return true;
     }
     
@@ -176,10 +161,10 @@ function swapRectangle(pointIdx1, pointIdx2) {
         boltPoints[pointIdx1] = [a, b];
         boltPoints[pointIdx2] = [c, d];
         // Update signs
-        signs.set(pointKey(a, b), '+');
-        signs.set(pointKey(c, d), '+');
         signs.delete(pointKey(a, d));
         signs.delete(pointKey(c, b));
+        signs.set(pointKey(a, b), '+');
+        signs.set(pointKey(c, d), '+');
         return true;
     }
     

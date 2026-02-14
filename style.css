@@ -177,10 +177,6 @@ canvas {
     display: block;
 }
 
-canvas.dragging {
-    cursor: grabbing;
-}
-
 .instructions {
     background: white;
     padding: 20px;
