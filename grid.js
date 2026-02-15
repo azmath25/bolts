@@ -18,6 +18,11 @@ function resizeCanvas() {
     ctx.imageSmoothingQuality = 'high';
 }
 
+// Convert from grid coordinates (0,0)=bottom-left to canvas coordinates (0,0)=top-left
+function toCanvasY(i) {
+    return (n - i) * cellSize;
+}
+
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -27,7 +32,7 @@ function drawGrid() {
         for (let j = 0; j < m; j++) {
             if (domainCells.includes(pointKey(i, j))) {
                 ctx.fillStyle = '#4ade80';
-                ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+                ctx.fillRect(j * cellSize, toCanvasY(i + 1), cellSize, cellSize);
             }
         }
     }
@@ -38,8 +43,8 @@ function drawGrid() {
     ctx.lineWidth = 1;
     for (let i = 0; i <= n; i++) {
         ctx.beginPath();
-        ctx.moveTo(0, i * cellSize);
-        ctx.lineTo(m * cellSize, i * cellSize);
+        ctx.moveTo(0, toCanvasY(i));
+        ctx.lineTo(m * cellSize, toCanvasY(i));
         ctx.stroke();
     }
     for (let j = 0; j <= m; j++) {
@@ -54,7 +59,7 @@ function drawGrid() {
     for (let i = 0; i <= n; i++) {
         for (let j = 0; j <= m; j++) {
             ctx.beginPath();
-            ctx.arc(j * cellSize, i * cellSize, 3, 0, 2 * Math.PI);
+            ctx.arc(j * cellSize, toCanvasY(i), 3, 0, 2 * Math.PI);
             ctx.fill();
         }
     }
@@ -85,10 +90,10 @@ function drawBolt(boltIndex, isSelected) {
     ctx.lineJoin = 'round';
     ctx.beginPath();
     let [i0, j0] = bolt.points[0];
-    ctx.moveTo(j0 * cellSize, i0 * cellSize);
+    ctx.moveTo(j0 * cellSize, toCanvasY(i0));
     for (let k = 1; k < bolt.points.length; k++) {
         let [i, j] = bolt.points[k];
-        ctx.lineTo(j * cellSize, i * cellSize);
+        ctx.lineTo(j * cellSize, toCanvasY(i));
     }
     if (bolt.closed) {
         ctx.closePath();
@@ -107,8 +112,8 @@ function drawBolt(boltIndex, isSelected) {
             ctx.lineWidth = 7;
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.moveTo(j1 * cellSize, i1 * cellSize);
-            ctx.lineTo(j2 * cellSize, i2 * cellSize);
+            ctx.moveTo(j1 * cellSize, toCanvasY(i1));
+            ctx.lineTo(j2 * cellSize, toCanvasY(i2));
             ctx.stroke();
         }
     }
@@ -129,7 +134,7 @@ function drawBolt(boltIndex, isSelected) {
         // Draw point
         ctx.fillStyle = pointColor;
         ctx.beginPath();
-        ctx.arc(j * cellSize, i * cellSize, isSelected ? 10 : 6, 0, 2 * Math.PI);
+        ctx.arc(j * cellSize, toCanvasY(i), isSelected ? 10 : 6, 0, 2 * Math.PI);
         ctx.fill();
         
         // White border
@@ -143,7 +148,7 @@ function drawBolt(boltIndex, isSelected) {
             ctx.strokeStyle = '#fbbf24';
             ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.arc(j * cellSize, i * cellSize, 14, 0, 2 * Math.PI);
+            ctx.arc(j * cellSize, toCanvasY(i), 14, 0, 2 * Math.PI);
             ctx.stroke();
         }
         
@@ -154,7 +159,7 @@ function drawBolt(boltIndex, isSelected) {
             ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(sign, j * cellSize, i * cellSize);
+            ctx.fillText(sign, j * cellSize, toCanvasY(i));
         }
     }
 }
@@ -169,10 +174,10 @@ function drawBoltInProgress(bolt) {
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         let [i0, j0] = bolt.points[0];
-        ctx.moveTo(j0 * cellSize, i0 * cellSize);
+        ctx.moveTo(j0 * cellSize, toCanvasY(i0));
         for (let k = 1; k < bolt.points.length; k++) {
             let [i, j] = bolt.points[k];
-            ctx.lineTo(j * cellSize, i * cellSize);
+            ctx.lineTo(j * cellSize, toCanvasY(i));
         }
         ctx.stroke();
         ctx.setLineDash([]);
@@ -182,7 +187,7 @@ function drawBoltInProgress(bolt) {
     for (let [i, j] of bolt.points) {
         ctx.fillStyle = '#3b82f6';
         ctx.beginPath();
-        ctx.arc(j * cellSize, i * cellSize, 8, 0, 2 * Math.PI);
+        ctx.arc(j * cellSize, toCanvasY(i), 8, 0, 2 * Math.PI);
         ctx.fill();
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 2;
@@ -191,12 +196,14 @@ function drawBoltInProgress(bolt) {
 }
 
 function cellFromCoords(x, y) {
-    return [Math.floor(y / cellSize), Math.floor(x / cellSize)];
+    let i = n - Math.floor(y / cellSize) - 1;
+    let j = Math.floor(x / cellSize);
+    return [i, j];
 }
 
 function pointFromCoords(x, y) {
     let j = Math.round(x / cellSize);
-    let i = Math.round(y / cellSize);
+    let i = n - Math.round(y / cellSize);
     i = Math.max(0, Math.min(n, i));
     j = Math.max(0, Math.min(m, j));
     return [i, j];
@@ -205,7 +212,7 @@ function pointFromCoords(x, y) {
 function isNearPoint(x, y, threshold = 20) {
     let [i, j] = pointFromCoords(x, y);
     let px = j * cellSize;
-    let py = i * cellSize;
+    let py = toCanvasY(i);
     let dx = x - px;
     let dy = y - py;
     return Math.sqrt(dx * dx + dy * dy) < threshold;
@@ -225,9 +232,9 @@ function findEdgeNear(x, y, threshold = 15) {
             let [i2, j2] = bolt.points[nextIdx];
             
             let x1 = j1 * cellSize;
-            let y1 = i1 * cellSize;
+            let y1 = toCanvasY(i1);
             let x2 = j2 * cellSize;
-            let y2 = i2 * cellSize;
+            let y2 = toCanvasY(i2);
             
             let dx = x2 - x1;
             let dy = y2 - y1;
