@@ -1,16 +1,10 @@
-// Bolt forest - support for multiple bolts
-let bolts = []; // Array of bolt objects
+// Bolt forest - COMPLETE IMPLEMENTATION
+// Result is always a forest where each bolt has alternating signs
+
+let bolts = [];
 let selectedBoltIndex = null;
 let boltMode = false;
-let currentBolt = null; // Bolt being drawn
-
-// Bolt object structure:
-// {
-//   points: [[i,j], ...],
-//   closed: boolean,
-//   signs: Map<pointKey, sign>,
-//   composite: boolean // true if 3+ points are collinear
-// }
+let currentBolt = null;
 
 function startNewBolt() {
     currentBolt = {
@@ -25,15 +19,12 @@ function addBoltPoint(i, j) {
     if (!currentBolt) return false;
     if (currentBolt.closed) return false;
     
-    // Check if point is in domain
     if (!isPointInDomain(i, j)) return false;
     
-    // Check if closing the loop
     if (currentBolt.points.length > 2) {
         let [si, sj] = currentBolt.points[0];
         if (i === si && j === sj) {
             let [pi, pj] = currentBolt.points[currentBolt.points.length - 1];
-            // Check if edge is horizontal or vertical
             if (pi !== i && pj !== j) return false;
             if (pi === i && pj === j) return false;
             
@@ -43,7 +34,6 @@ function addBoltPoint(i, j) {
                 currentBolt.composite = isComposite(currentBolt.points);
                 bolts.push(currentBolt);
                 selectedBoltIndex = bolts.length - 1;
-                // Don't turn off boltMode - user can draw another bolt
                 currentBolt = null;
                 return true;
             }
@@ -57,20 +47,14 @@ function addBoltPoint(i, j) {
     }
     
     let [pi, pj] = currentBolt.points[currentBolt.points.length - 1];
-    
-    // Check if edge is horizontal or vertical (not diagonal)
     if (pi !== i && pj !== j) return false;
-    
-    // Can't be the same point
     if (pi === i && pj === j) return false;
     
-    // First edge can go anywhere
     if (currentBolt.points.length === 1) {
         currentBolt.points.push([i, j]);
         return true;
     }
     
-    // Check 90° turn
     let [pi2, pj2] = currentBolt.points[currentBolt.points.length - 2];
     if (validTurn([pi2, pj2], [pi, pj], [i, j])) {
         currentBolt.points.push([i, j]);
@@ -81,13 +65,10 @@ function addBoltPoint(i, j) {
 }
 
 function isComposite(points) {
-    // Check if 3+ consecutive points are collinear
     for (let k = 0; k < points.length - 2; k++) {
         let [i1, j1] = points[k];
         let [i2, j2] = points[k + 1];
         let [i3, j3] = points[k + 2];
-        
-        // Check if all on same row or column
         if ((i1 === i2 && i2 === i3) || (j1 === j2 && j2 === j3)) {
             return true;
         }
@@ -96,7 +77,6 @@ function isComposite(points) {
 }
 
 function isPointInDomain(i, j) {
-    // A lattice point is in domain if it's a corner of any domain cell
     if (domainCells.includes(pointKey(i - 1, j - 1))) return true;
     if (domainCells.includes(pointKey(i - 1, j))) return true;
     if (domainCells.includes(pointKey(i, j - 1))) return true;
@@ -118,10 +98,8 @@ function assignSignsToBolt(boltIndex, startSign = '+') {
 }
 
 function selectBolt(i, j) {
-    // Find which bolt contains this point
     for (let b = 0; b < bolts.length; b++) {
-        let bolt = bolts[b];
-        for (let [pi, pj] of bolt.points) {
+        for (let [pi, pj] of bolts[b].points) {
             if (pi === i && pj === j) {
                 selectedBoltIndex = b;
                 return b;
@@ -134,13 +112,16 @@ function selectBolt(i, j) {
 function findPointInBolt(boltIndex, i, j) {
     if (boltIndex < 0 || boltIndex >= bolts.length) return -1;
     
-    let bolt = bolts[boltIndex];
-    for (let k = 0; k < bolt.points.length; k++) {
-        let [pi, pj] = bolt.points[k];
+    for (let k = 0; k < bolts[boltIndex].points.length; k++) {
+        let [pi, pj] = bolts[boltIndex].points[k];
         if (pi === i && pj === j) return k;
     }
     return -1;
 }
+
+//=============================================================================
+// COMPLETE EDGE MOVE WITH FOREST REBUILD
+//=============================================================================
 
 function moveVerticalEdge(boltIndex, edgeIndex, direction) {
     if (boltIndex < 0 || boltIndex >= bolts.length) return false;
@@ -152,23 +133,18 @@ function moveVerticalEdge(boltIndex, edgeIndex, direction) {
     let [i1, j1] = bolt.points[edgeIndex];
     let [i2, j2] = bolt.points[nextIdx];
     
-    // Check if edge is vertical
     if (j1 !== j2) return false;
     
     let newJ = j1 + direction;
     
-    // Check if both endpoints would be in domain
     if (!isPointInDomain(i1, newJ) || !isPointInDomain(i2, newJ)) {
         return false;
     }
     
-    // Move the edge
     bolt.points[edgeIndex][1] = newJ;
     bolt.points[nextIdx][1] = newJ;
     
-    // Rebuild forest after move
-    rebuildForestAfterMove(boltIndex);
-    
+    rebuildForestAfterMove();
     return true;
 }
 
@@ -182,350 +158,345 @@ function moveHorizontalEdge(boltIndex, edgeIndex, direction) {
     let [i1, j1] = bolt.points[edgeIndex];
     let [i2, j2] = bolt.points[nextIdx];
     
-    // Check if edge is horizontal
     if (i1 !== i2) return false;
     
     let newI = i1 + direction;
     
-    // Check if both endpoints would be in domain
     if (!isPointInDomain(newI, j1) || !isPointInDomain(newI, j2)) {
         return false;
     }
     
-    // Move the edge
     bolt.points[edgeIndex][0] = newI;
     bolt.points[nextIdx][0] = newI;
     
-    // Rebuild forest after move
-    rebuildForestAfterMove(boltIndex);
-    
+    rebuildForestAfterMove();
     return true;
 }
 
-function rebuildForestAfterMove(boltIndex) {
-    // This function rebuilds the entire forest after moving an edge
-    // Steps:
-    // 1. Extract the bolt being modified
-    // 2. Find all merged points and handle sign arithmetic
-    // 3. Delete points with sign = 0 and reconnect neighbors
-    // 4. Find connected components (new bolts)
-    // 5. Replace old bolt with new bolts
+function rebuildForestAfterMove() {
+    // Step 1: Find ALL merges across forest
+    let mergeMap = findAllMerges();
     
-    if (boltIndex < 0 || boltIndex >= bolts.length) return;
+    // Step 2: Process merges with sign arithmetic
+    let toDelete = processMerges(mergeMap);
     
-    let bolt = bolts[boltIndex];
-    let hasSign = bolt.signs.size > 0;
+    // Step 3: Build new forest from remaining points
+    let newBolts = buildNewForest(toDelete);
     
-    // Step 1: Build adjacency structure
-    let edges = [];
-    for (let k = 0; k < bolt.points.length; k++) {
-        let nextIdx = (k + 1) % bolt.points.length;
-        if (bolt.closed || k < bolt.points.length - 1) {
-            edges.push([k, nextIdx]);
-        }
+    // Step 4: Reassign alternating signs to ALL bolts
+    for (let bolt of newBolts) {
+        reassignAlternatingSigns(bolt);
     }
     
-    // Step 2: Find merged points (points at same position)
-    let mergeGroups = findMergeGroups(bolt.points);
+    // Step 5: Replace forest
+    let oldSelected = selectedBoltIndex >= 0 && selectedBoltIndex < bolts.length ? bolts[selectedBoltIndex] : null;
+    bolts = newBolts;
     
-    // Step 3: Handle sign arithmetic for merges
-    let pointsToDelete = new Set();
-    for (let group of mergeGroups) {
-        if (group.length > 1 && hasSign) {
-            // Calculate combined sign
-            let combinedSign = '';
-            for (let idx of group) {
-                let key = pointKey(bolt.points[idx][0], bolt.points[idx][1]);
-                let sign = bolt.signs.get(key) || '';
-                combinedSign = addSigns(combinedSign, sign);
+    // Try to maintain selection
+    if (oldSelected && oldSelected.points.length > 0) {
+        let [ri, rj] = oldSelected.points[0];
+        for (let b = 0; b < bolts.length; b++) {
+            for (let [pi, pj] of bolts[b].points) {
+                if (pi === ri && pj === rj) {
+                    selectedBoltIndex = b;
+                    return;
+                }
             }
+        }
+    }
+    selectedBoltIndex = bolts.length > 0 ? 0 : null;
+}
+
+function findAllMerges() {
+    let mergeMap = new Map();
+    
+    for (let b = 0; b < bolts.length; b++) {
+        for (let p = 0; p < bolts[b].points.length; p++) {
+            let [i, j] = bolts[b].points[p];
+            let key = pointKey(i, j);
+            let sign = bolts[b].signs.get(key) || '';
             
-            // If sign = 0, mark all for deletion
-            if (combinedSign === '0') {
-                for (let idx of group) {
-                    pointsToDelete.add(idx);
-                }
-            } else {
-                // Keep first point with combined sign, delete others
-                let keepIdx = group[0];
-                let key = pointKey(bolt.points[keepIdx][0], bolt.points[keepIdx][1]);
-                bolt.signs.set(key, combinedSign);
-                
-                for (let i = 1; i < group.length; i++) {
-                    pointsToDelete.add(group[i]);
-                }
+            if (!mergeMap.has(key)) {
+                mergeMap.set(key, []);
             }
-        } else if (group.length > 1) {
-            // No signs, just merge (keep first, delete others)
-            for (let i = 1; i < group.length; i++) {
-                pointsToDelete.add(group[i]);
-            }
+            mergeMap.get(key).push({b, p, sign});
         }
     }
     
-    // Step 4: Build new edge list without deleted points
-    let validEdges = [];
-    for (let [a, b] of edges) {
-        if (!pointsToDelete.has(a) && !pointsToDelete.has(b)) {
-            validEdges.push([a, b]);
-        }
-    }
+    return mergeMap;
+}
+
+function processMerges(mergeMap) {
+    let toDelete = new Set();
     
-    // Step 5: Reconnect neighbors of deleted points
-    for (let delIdx of pointsToDelete) {
-        // Find edges connected to this point
-        let connectedPoints = [];
-        for (let [a, b] of edges) {
-            if (a === delIdx) connectedPoints.push(b);
-            if (b === delIdx) connectedPoints.push(a);
+    for (let [key, list] of mergeMap.entries()) {
+        if (list.length <= 1) continue;
+        
+        // Add all signs
+        let combinedSign = '';
+        for (let {sign} of list) {
+            combinedSign = addSigns(combinedSign, sign);
         }
         
-        // Connect its neighbors if both exist and not deleted
-        connectedPoints = connectedPoints.filter(p => !pointsToDelete.has(p));
-        if (connectedPoints.length === 2) {
-            validEdges.push([connectedPoints[0], connectedPoints[1]]);
+        if (combinedSign === '0') {
+            // Delete ALL
+            for (let {b, p} of list) {
+                toDelete.add(`${b},${p}`);
+            }
+        } else {
+            // Keep first, delete rest
+            for (let i = 0; i < list.length; i++) {
+                if (i === 0) {
+                    let {b, p} = list[i];
+                    bolts[b].signs.set(key, combinedSign);
+                } else {
+                    let {b, p} = list[i];
+                    toDelete.add(`${b},${p}`);
+                }
+            }
         }
     }
     
-    // Step 6: Remove duplicate edges
-    validEdges = removeDuplicateEdges(validEdges);
-    
-    // Step 7: Find connected components
-    let components = findConnectedComponents(bolt.points.length, validEdges, pointsToDelete);
-    
-    // Step 8: Create new bolts from components
+    return toDelete;
+}
+
+function buildNewForest(toDelete) {
     let newBolts = [];
-    for (let component of components) {
-        if (component.length < 2) continue; // Skip single points
+    
+    for (let b = 0; b < bolts.length; b++) {
+        let bolt = bolts[b];
         
-        let newBolt = {
-            points: component.map(idx => [...bolt.points[idx]]),
-            closed: isComponentClosed(component, validEdges),
-            signs: new Map(),
-            composite: false
-        };
-        
-        // Copy signs
-        if (hasSign) {
-            for (let idx of component) {
-                let key = pointKey(bolt.points[idx][0], bolt.points[idx][1]);
-                if (bolt.signs.has(key)) {
-                    newBolt.signs.set(key, bolt.signs.get(key));
+        // Build edges
+        let edges = [];
+        for (let p = 0; p < bolt.points.length; p++) {
+            let next = (p + 1) % bolt.points.length;
+            if (bolt.closed || p < bolt.points.length - 1) {
+                let p1Del = toDelete.has(`${b},${p}`);
+                let p2Del = toDelete.has(`${b},${next}`);
+                
+                if (!p1Del && !p2Del) {
+                    edges.push([p, next]);
+                } else if (p1Del && !p2Del) {
+                    let prev = (p - 1 + bolt.points.length) % bolt.points.length;
+                    if (!toDelete.has(`${b},${prev}`) && prev !== next) {
+                        edges.push([prev, next]);
+                    }
+                } else if (!p1Del && p2Del) {
+                    let next2 = (next + 1) % bolt.points.length;
+                    if (!toDelete.has(`${b},${next2}`) && p !== next2) {
+                        edges.push([p, next2]);
+                    }
                 }
             }
         }
         
-        newBolt.composite = isComposite(newBolt.points);
-        newBolts.push(newBolt);
-    }
-    
-    // Step 9: Replace old bolt with new bolts
-    bolts.splice(boltIndex, 1, ...newBolts);
-    
-    // Update selected index
-    if (selectedBoltIndex === boltIndex) {
-        selectedBoltIndex = newBolts.length > 0 ? boltIndex : null;
-    } else if (selectedBoltIndex > boltIndex) {
-        selectedBoltIndex += newBolts.length - 1;
-    }
-}
-
-function findMergeGroups(points) {
-    // Group points by position
-    let positionMap = new Map();
-    
-    for (let i = 0; i < points.length; i++) {
-        let key = pointKey(points[i][0], points[i][1]);
-        if (!positionMap.has(key)) {
-            positionMap.set(key, []);
-        }
-        positionMap.get(key).push(i);
-    }
-    
-    let groups = [];
-    for (let group of positionMap.values()) {
-        groups.push(group);
-    }
-    
-    return groups;
-}
-
-function removeDuplicateEdges(edges) {
-    let seen = new Set();
-    let unique = [];
-    
-    for (let [a, b] of edges) {
-        let key1 = `${a}-${b}`;
-        let key2 = `${b}-${a}`;
-        if (!seen.has(key1) && !seen.has(key2)) {
-            seen.add(key1);
-            unique.push([a, b]);
+        // Find components
+        let components = findComponents(bolt.points.length, edges, toDelete, b);
+        
+        // Create bolts with PROPER PATH ORDER
+        for (let comp of components) {
+            if (comp.length < 2) continue;
+            
+            // CRITICAL FIX: Order component by following edges!
+            let orderedComp = orderComponentByPath(comp, edges);
+            
+            let newBolt = {
+                points: orderedComp.map(idx => [...bolt.points[idx]]),
+                closed: isClosedComponent(comp, edges),
+                signs: new Map(),
+                composite: false
+            };
+            
+            newBolt.composite = isComposite(newBolt.points);
+            newBolts.push(newBolt);
         }
     }
     
-    return unique;
+    return newBolts;
 }
 
-function findConnectedComponents(numPoints, edges, deletedPoints) {
-    // Build adjacency list
+// NEW FUNCTION: Order component indices by following the path
+function orderComponentByPath(component, edges) {
+    if (component.length === 0) return [];
+    if (component.length === 1) return component;
+    
+    // Build adjacency map for this component
     let adj = new Map();
-    for (let i = 0; i < numPoints; i++) {
-        if (!deletedPoints.has(i)) {
-            adj.set(i, []);
-        }
+    for (let v of component) {
+        adj.set(v, []);
     }
     
     for (let [a, b] of edges) {
-        if (!deletedPoints.has(a) && !deletedPoints.has(b)) {
+        if (component.includes(a) && component.includes(b)) {
             adj.get(a).push(b);
             adj.get(b).push(a);
         }
     }
     
-    // DFS to find components
+    // Find starting point (vertex with degree 1 for open path, any vertex for closed)
+    let start = component[0];
+    
+    for (let v of component) {
+        if (adj.get(v).length === 1) {
+            start = v;
+            break;
+        }
+    }
+    
+    // Traverse path in order
+    let ordered = [];
+    let visited = new Set();
+    let current = start;
+    let prev = null;
+    
+    while (current !== null && !visited.has(current)) {
+        visited.add(current);
+        ordered.push(current);
+        
+        // Find next unvisited neighbor
+        let next = null;
+        for (let neighbor of adj.get(current)) {
+            if (neighbor !== prev && !visited.has(neighbor)) {
+                next = neighbor;
+                break;
+            }
+        }
+        
+        prev = current;
+        current = next;
+    }
+    
+    return ordered;
+}
+
+function findComponents(n, edges, deleted, boltIdx) {
+    let valid = [];
+    for (let i = 0; i < n; i++) {
+        if (!deleted.has(`${boltIdx},${i}`)) {
+            valid.push(i);
+        }
+    }
+    
+    if (valid.length === 0) return [];
+    
+    let adj = new Map();
+    for (let v of valid) adj.set(v, []);
+    
+    for (let [a, b] of edges) {
+        if (adj.has(a) && adj.has(b)) {
+            adj.get(a).push(b);
+            adj.get(b).push(a);
+        }
+    }
+    
     let visited = new Set();
     let components = [];
     
-    for (let start of adj.keys()) {
-        if (!visited.has(start)) {
-            let component = [];
-            let stack = [start];
+    for (let start of valid) {
+        if (visited.has(start)) continue;
+        
+        let comp = [];
+        let stack = [start];
+        
+        while (stack.length > 0) {
+            let node = stack.pop();
+            if (visited.has(node)) continue;
             
-            while (stack.length > 0) {
-                let node = stack.pop();
-                if (visited.has(node)) continue;
-                
-                visited.add(node);
-                component.push(node);
-                
-                for (let neighbor of adj.get(node)) {
-                    if (!visited.has(neighbor)) {
-                        stack.push(neighbor);
-                    }
-                }
+            visited.add(node);
+            comp.push(node);
+            
+            for (let nb of adj.get(node)) {
+                if (!visited.has(nb)) stack.push(nb);
             }
-            
-            components.push(component);
         }
+        
+        components.push(comp);
     }
     
     return components;
 }
 
-function isComponentClosed(component, edges) {
-    // A component is closed if it forms a cycle
-    // Check if every vertex has degree 2
-    let degree = new Map();
-    for (let idx of component) {
-        degree.set(idx, 0);
-    }
+function isClosedComponent(comp, edges) {
+    let deg = new Map();
+    for (let v of comp) deg.set(v, 0);
     
     for (let [a, b] of edges) {
-        if (component.includes(a) && component.includes(b)) {
-            degree.set(a, degree.get(a) + 1);
-            degree.set(b, degree.get(b) + 1);
+        if (comp.includes(a) && comp.includes(b)) {
+            deg.set(a, deg.get(a) + 1);
+            deg.set(b, deg.get(b) + 1);
         }
     }
     
-    for (let d of degree.values()) {
+    for (let d of deg.values()) {
         if (d !== 2) return false;
     }
     
-    return true;
+    return comp.length >= 3;
 }
 
-function addSigns(sign1, sign2) {
-    // Handle empty strings
-    if (!sign1 || sign1 === '') return sign2 || '';
-    if (!sign2 || sign2 === '') return sign1 || '';
-    
-    // Handle sign = 0
-    if (sign1 === '0') return sign2;
-    if (sign2 === '0') return sign1;
-    
-    // Opposite signs cancel
-    if (sign1 === '+' && sign2 === '-') return '0';
-    if (sign1 === '-' && sign2 === '+') return '0';
-    
-    // Same signs stay
-    if (sign1 === '+' && sign2 === '+') return '+';
-    if (sign1 === '-' && sign2 === '-') return '-';
-    
-    // Default
-    return sign1;
+function reassignAlternatingSigns(bolt) {
+    bolt.signs.clear();
+    let sign = '+';
+    for (let [i, j] of bolt.points) {
+        bolt.signs.set(pointKey(i, j), sign);
+        sign = (sign === '+') ? '-' : '+';
+    }
 }
 
-function deletePointAndReconnect(boltIndex, pointIndex) {
-    let bolt = bolts[boltIndex];
-    if (bolt.points.length <= 3) return; // Can't delete if too few points
-    
-    // Remove the point
-    let [i, j] = bolt.points[pointIndex];
-    bolt.signs.delete(pointKey(i, j));
-    bolt.points.splice(pointIndex, 1);
+function addSigns(s1, s2) {
+    if (!s1 || s1 === '') return s2 || '';
+    if (!s2 || s2 === '') return s1 || '';
+    if (s1 === '0') return s2;
+    if (s2 === '0') return s1;
+    if (s1 === '+' && s2 === '-') return '0';
+    if (s1 === '-' && s2 === '+') return '0';
+    if (s1 === '+' && s2 === '+') return '+';
+    if (s1 === '-' && s2 === '-') return '-';
+    return s1;
 }
 
-function swapRectangle(boltIndex, pointIdx1, pointIdx2) {
+//=============================================================================
+// RECTANGLE SWAP
+//=============================================================================
+
+function swapRectangle(boltIndex, idx1, idx2) {
     if (boltIndex < 0 || boltIndex >= bolts.length) return false;
     
     let bolt = bolts[boltIndex];
     if (bolt.signs.size === 0) return false;
     
-    let [i1, j1] = bolt.points[pointIdx1];
-    let [i2, j2] = bolt.points[pointIdx2];
+    let [i1, j1] = bolt.points[idx1];
+    let [i2, j2] = bolt.points[idx2];
     
     let sign1 = bolt.signs.get(pointKey(i1, j1));
     let sign2 = bolt.signs.get(pointKey(i2, j2));
     
-    // Both must have same sign
     if (sign1 !== sign2) return false;
-    
-    // Check if points form a rectangle
     if (i1 === i2 || j1 === j2) return false;
     
-    // Get rectangle bounds
     let minI = Math.min(i1, i2);
     let maxI = Math.max(i1, i2);
     let minJ = Math.min(j1, j2);
     let maxJ = Math.max(j1, j2);
     
-    // Check all 4 corners in domain
     if (!isPointInDomain(minI, minJ) || !isPointInDomain(minI, maxJ) ||
         !isPointInDomain(maxI, minJ) || !isPointInDomain(maxI, maxJ)) {
         return false;
     }
     
-    // Check if well-ordered
     let wellOrdered = (i1 < i2 && j1 < j2) || (i1 > i2 && j1 > j2);
     
-    // Case 1: Both NEGATIVE and well-ordered → make non-well-ordered
     if (sign1 === '-' && wellOrdered) {
-        // Transform: well-ordered to non-well-ordered
-        // (i1,j1) and (i2,j2) → (i1,j2) and (i2,j1)
-        bolt.points[pointIdx1] = [i1, j2];
-        bolt.points[pointIdx2] = [i2, j1];
-        
-        // Update signs
-        bolt.signs.delete(pointKey(i1, j1));
-        bolt.signs.delete(pointKey(i2, j2));
-        bolt.signs.set(pointKey(i1, j2), '-');
-        bolt.signs.set(pointKey(i2, j1), '-');
-        
+        bolt.points[idx1] = [i1, j2];
+        bolt.points[idx2] = [i2, j1];
+        rebuildForestAfterMove();
         return true;
     }
     
-    // Case 2: Both POSITIVE and NOT well-ordered → make well-ordered
     if (sign1 === '+' && !wellOrdered) {
-        // Transform: non-well-ordered to well-ordered
-        bolt.points[pointIdx1] = [minI, minJ];
-        bolt.points[pointIdx2] = [maxI, maxJ];
-        
-        // Update signs
-        bolt.signs.delete(pointKey(i1, j1));
-        bolt.signs.delete(pointKey(i2, j2));
-        bolt.signs.set(pointKey(minI, minJ), '+');
-        bolt.signs.set(pointKey(maxI, maxJ), '+');
-        
+        bolt.points[idx1] = [minI, minJ];
+        bolt.points[idx2] = [maxI, maxJ];
+        rebuildForestAfterMove();
         return true;
     }
     
